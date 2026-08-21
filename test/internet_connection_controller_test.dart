@@ -36,22 +36,22 @@ void main() {
   });
 
   test('إنشاء الوسيط بلا خدمة مسجّلة يرمي StateError برسالة واضحة', () {
-    expect(() => InternetConnectionController(), throwsStateError);
+    expect(() => ConnectionController(), throwsStateError);
   });
 
   test('الوسيط يتبع حالة الخدمة ويحدّث isOnline/isCellular', () async {
     final source = FakeConnectivitySource()
       ..current = const [ConnectivityResult.wifi];
-    final service = InternetConnectionService(
+    final service = ConnectionService(
       connectivitySource: source,
-      options: const InternetConnectionOptions(
+      options: const ConnectionOptions(
         disconnectDebounce: Duration(milliseconds: 40),
       ),
     );
     await service.init();
     Get.put(service, permanent: true);
 
-    final controller = Get.put(InternetConnectionController(service: service));
+    final controller = Get.put(ConnectionController(service: service));
     expect(controller.connectionStatus.value, ConnectivityStatus.wifi);
     expect(controller.isOnline, isTrue);
     expect(controller.isCellular, isFalse);
@@ -66,7 +66,7 @@ void main() {
     expect(controller.isOnline, isFalse);
     expect(controller.connectionStatus.value, ConnectivityStatus.offline);
 
-    Get.delete<InternetConnectionController>(force: true);
+    Get.delete<ConnectionController>(force: true);
     await service.dispose();
     await source.close();
   });
@@ -74,16 +74,16 @@ void main() {
   test('instance ينشئ الوسيط تلقائيًا متى سُجّلت الخدمة', () async {
     final source = FakeConnectivitySource()
       ..current = const [ConnectivityResult.mobile];
-    final service = InternetConnectionService(connectivitySource: source);
+    final service = ConnectionService(connectivitySource: source);
     await service.init();
     Get.put(service, permanent: true);
 
-    final controller = InternetConnectionController.instance;
-    expect(Get.isRegistered<InternetConnectionController>(), isTrue);
+    final controller = ConnectionController.instance;
+    expect(Get.isRegistered<ConnectionController>(), isTrue);
     expect(controller.connectionStatus.value, ConnectivityStatus.cellular);
     expect(controller.isCellular, isTrue);
 
-    Get.delete<InternetConnectionController>(force: true);
+    Get.delete<ConnectionController>(force: true);
     await service.dispose();
     await source.close();
   });

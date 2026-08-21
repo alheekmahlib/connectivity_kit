@@ -9,9 +9,9 @@ import 'reachability/reachability_probe.dart';
 import 'reachability/reachability_probe_stub.dart'
     if (dart.library.io) 'reachability/reachability_probe_io.dart';
 
-/// إعدادات [InternetConnectionService].
-class InternetConnectionOptions {
-  const InternetConnectionOptions({
+/// إعدادات [ConnectionService].
+class ConnectionOptions {
+  const ConnectionOptions({
     /// مهلة انتظار حالة الانقطاع قبل بثّها، لتجنّب الأحداث المؤقتة الكاذبة.
     this.disconnectDebounce = const Duration(seconds: 3),
 
@@ -41,25 +41,24 @@ class InternetConnectionOptions {
 ///
 /// يجب استدعاء [init] مع `await` قبل استخدام الخدمة، و[dispose] عند عدم
 /// الحاجة إليها. استدعاء [dispose] قبل [init] آمن.
-class InternetConnectionService {
-  InternetConnectionService({
-    InternetConnectionOptions options = const InternetConnectionOptions(),
+class ConnectionService {
+  ConnectionService({
+    ConnectionOptions options = const ConnectionOptions(),
     ConnectivitySource? connectivitySource,
     ReachabilityProbe? reachabilityProbe,
-  }) : _options = options,
-       _connectivitySource =
-           connectivitySource ?? const DefaultConnectivitySource(),
-       _reachabilityProbe =
-           reachabilityProbe ??
-           (options.enableReachability
-               ? SocketReachabilityProbe(
-                   host: options.probeHost,
-                   port: options.probePort,
-                   timeout: options.reachabilityTimeout,
-                 )
-               : null);
+  })  : _options = options,
+        _connectivitySource =
+            connectivitySource ?? const DefaultConnectivitySource(),
+        _reachabilityProbe = reachabilityProbe ??
+            (options.enableReachability
+                ? SocketReachabilityProbe(
+                    host: options.probeHost,
+                    port: options.probePort,
+                    timeout: options.reachabilityTimeout,
+                  )
+                : null);
 
-  final InternetConnectionOptions _options;
+  final ConnectionOptions _options;
   final ConnectivitySource _connectivitySource;
   final ReachabilityProbe? _reachabilityProbe;
 
@@ -93,8 +92,8 @@ class InternetConnectionService {
     if (_isInitialized || _isDisposed) return;
     _isInitialized = true;
 
-    _connectivitySubscription = _connectivitySource.onConnectivityChanged
-        .listen(_onConnectivityResult);
+    _connectivitySubscription =
+        _connectivitySource.onConnectivityChanged.listen(_onConnectivityResult);
 
     final initialResult = await _connectivitySource.checkConnectivity();
     if (_isDisposed || _hasStreamEvent) return;

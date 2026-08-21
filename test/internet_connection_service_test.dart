@@ -56,7 +56,7 @@ void main() {
   test('init يعبّي الحالة الأولية من checkConnectivity', () async {
     final source = FakeConnectivitySource()
       ..current = const [ConnectivityResult.mobile];
-    final service = InternetConnectionService(connectivitySource: source);
+    final service = ConnectionService(connectivitySource: source);
 
     await service.init();
 
@@ -68,12 +68,11 @@ void main() {
     'حدث أحدث من الـ stream لا تكتبي فوقه نتيجة checkConnectivity القديمة',
     () async {
       final source = FakeConnectivitySource()
-        ..current =
-            const [ConnectivityResult.none] // نتيجة أولية قديمة
+        ..current = const [ConnectivityResult.none] // نتيجة أولية قديمة
         ..checkDelay = const Duration(milliseconds: 60);
-      final service = InternetConnectionService(
+      final service = ConnectionService(
         connectivitySource: source,
-        options: const InternetConnectionOptions(
+        options: const ConnectionOptions(
           disconnectDebounce: Duration.zero,
         ),
       );
@@ -91,9 +90,9 @@ void main() {
 
   test('الانقطاع العابر أقصر من الـ debounce لا يُبث', () async {
     final source = FakeConnectivitySource();
-    final service = InternetConnectionService(
+    final service = ConnectionService(
       connectivitySource: source,
-      options: const InternetConnectionOptions(
+      options: const ConnectionOptions(
         disconnectDebounce: Duration(milliseconds: 80),
       ),
     );
@@ -115,9 +114,9 @@ void main() {
 
   test('الانقطاع المستمر يُبث بعد مهلة الـ debounce فقط', () async {
     final source = FakeConnectivitySource();
-    final service = InternetConnectionService(
+    final service = ConnectionService(
       connectivitySource: source,
-      options: const InternetConnectionOptions(
+      options: const ConnectionOptions(
         disconnectDebounce: Duration(milliseconds: 60),
       ),
     );
@@ -137,14 +136,14 @@ void main() {
   });
 
   test('dispose قبل init آمن ولا يرمي استثناءً', () async {
-    final service = InternetConnectionService();
+    final service = ConnectionService();
     await service.dispose();
     expect(service.currentStatus, ConnectivityStatus.offline);
   });
 
   test('dispose يوقف بث الأحداث بعده', () async {
     final source = FakeConnectivitySource();
-    final service = InternetConnectionService(connectivitySource: source);
+    final service = ConnectionService(connectivitySource: source);
     await service.init();
     await service.dispose();
 
@@ -159,10 +158,10 @@ void main() {
       final source = FakeConnectivitySource()
         ..current = const [ConnectivityResult.wifi];
       final probe = FakeReachabilityProbe()..reachable = false;
-      final service = InternetConnectionService(
+      final service = ConnectionService(
         connectivitySource: source,
         reachabilityProbe: probe,
-        options: const InternetConnectionOptions(
+        options: const ConnectionOptions(
           enableReachability: true,
           disconnectDebounce: Duration(milliseconds: 40),
         ),
@@ -179,10 +178,10 @@ void main() {
       final source = FakeConnectivitySource()
         ..current = const [ConnectivityResult.wifi];
       final probe = FakeReachabilityProbe()..reachable = true;
-      final service = InternetConnectionService(
+      final service = ConnectionService(
         connectivitySource: source,
         reachabilityProbe: probe,
-        options: const InternetConnectionOptions(enableReachability: true),
+        options: const ConnectionOptions(enableReachability: true),
       );
 
       await service.init();
@@ -198,10 +197,10 @@ void main() {
       final probe = FakeReachabilityProbe(
         delay: const Duration(milliseconds: 80),
       )..reachable = true;
-      final service = InternetConnectionService(
+      final service = ConnectionService(
         connectivitySource: source,
         reachabilityProbe: probe,
-        options: const InternetConnectionOptions(enableReachability: true),
+        options: const ConnectionOptions(enableReachability: true),
       );
       await service.init();
 

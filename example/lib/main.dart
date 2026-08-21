@@ -6,14 +6,14 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 1) أنشئ الخدمة وتهيّئها (مع فحص الوصول الفعلي هنا كمثال)
-  final service = InternetConnectionService(
-    options: const InternetConnectionOptions(enableReachability: true),
+  final service = ConnectionService(
+    options: const ConnectionOptions(enableReachability: true),
   );
   await service.init();
 
   // 2) سجّلها ثم سجّل الوسيط في GetX
   Get.put(service, permanent: true);
-  Get.put(InternetConnectionController(), permanent: true);
+  Get.put(ConnectionController(), permanent: true);
 
   runApp(const MyApp());
 }
@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
         body: Center(
           // 3) رابط الواجهة بالحالة عبر Obx
           child: Obx(() {
-            final controller = InternetConnectionController.instance;
+            final controller = ConnectionController.instance;
             final IconData icon;
             final String label;
             switch (controller.connectionStatus.value) {

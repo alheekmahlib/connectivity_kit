@@ -3,20 +3,20 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 
+import 'connection_service.dart';
 import 'connectivity_status.dart';
-import 'internet_connection_service.dart';
 
 /// وسيط GetX يعبّي حالة الاتصال في [Rx] لمراقبتها مباشرة في الواجهات.
 ///
 /// عرض رسائل المستخدم (snackbar ونحوه) مسؤولية التطبيق المستهلك عبر
 /// الاستماع لـ [connectionStatus].
-class InternetConnectionController extends GetxController {
-  InternetConnectionController({InternetConnectionService? service})
-    : _connectivityService = service ?? _findRegisteredService();
+class ConnectionController extends GetxController {
+  ConnectionController({ConnectionService? service})
+      : _connectivityService = service ?? _findRegisteredService();
 
-  static InternetConnectionService _findRegisteredService() {
-    if (Get.isRegistered<InternetConnectionService>()) {
-      return Get.find<InternetConnectionService>();
+  static ConnectionService _findRegisteredService() {
+    if (Get.isRegistered<ConnectionService>()) {
+      return Get.find<ConnectionService>();
     }
     throw StateError(
       'InternetConnectionService غير مسجّل في GetX.\n'
@@ -26,15 +26,15 @@ class InternetConnectionController extends GetxController {
   }
 
   /// وصول شائع: يعيد المثيل المسجّل أو ينشئه مسجّلًا دائمًا.
-  static InternetConnectionController get instance =>
-      Get.isRegistered<InternetConnectionController>()
-      ? Get.find<InternetConnectionController>()
-      : Get.put<InternetConnectionController>(
-          InternetConnectionController(),
-          permanent: true,
-        );
+  static ConnectionController get instance =>
+      Get.isRegistered<ConnectionController>()
+          ? Get.find<ConnectionController>()
+          : Get.put<ConnectionController>(
+              ConnectionController(),
+              permanent: true,
+            );
 
-  final InternetConnectionService _connectivityService;
+  final ConnectionService _connectivityService;
   StreamSubscription<ConnectivityStatus>? _subscription;
 
   /// الحالة الحالية للمراقبة في الواجهات عبر Obx.
