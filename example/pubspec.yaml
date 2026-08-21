@@ -1,0 +1,16 @@
+name: connectivity_kit_example
+description: Demonstrates how to use the connectivity_kit package.
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  connectivity_kit:
+    path: ../
+  flutter:
+    sdk: flutter
+  get: ^4.7.3
+
+flutter:
+  uses-material-design: true
