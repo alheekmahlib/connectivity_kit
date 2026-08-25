@@ -1,30 +1,9 @@
-import 'dart:async';
-
 import 'package:connectivity_kit/connectivity_kit.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 
-/// مصدر اتصال مزيف يقود الأحداث يدويًا بدل قنوات المنصة.
-class FakeConnectivitySource implements ConnectivitySource {
-  final _controller = StreamController<List<ConnectivityResult>>.broadcast();
-
-  List<ConnectivityResult> current = const [ConnectivityResult.wifi];
-
-  @override
-  Stream<List<ConnectivityResult>> get onConnectivityChanged =>
-      _controller.stream;
-
-  @override
-  Future<List<ConnectivityResult>> checkConnectivity() async => current;
-
-  void emit(List<ConnectivityResult> results) {
-    current = results;
-    _controller.add(results);
-  }
-
-  Future<void> close() => _controller.close();
-}
+import 'helpers/fakes.dart';
 
 void main() {
   setUp(() {

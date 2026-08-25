@@ -32,3 +32,6 @@ migrate_working_dir/
 
 # Example lockfile should not be committed either.
 example/pubspec.lock
+
+# ZCode agent session data
+.zcode/

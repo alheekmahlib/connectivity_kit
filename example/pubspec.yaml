@@ -8,9 +8,11 @@ environment:
 dependencies:
   connectivity_kit:
     path: ../
+  connectivity_plus: ^7.3.1
   flutter:
     sdk: flutter
   get: ^4.7.3
+  shared_preferences: ^2.2.0
 
 dev_dependencies:
   flutter_lints: ^6.0.0

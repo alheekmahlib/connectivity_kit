@@ -19,9 +19,9 @@ class ConnectionController extends GetxController {
       return Get.find<ConnectionService>();
     }
     throw StateError(
-      'InternetConnectionService غير مسجّل في GetX.\n'
+      'ConnectionService غير مسجّل في GetX.\n'
       'سجّله أولاً: Get.put(service, permanent: true)\n'
-      'أو مرّره مباشرة: InternetConnectionController(service: service)',
+      'أو مرّره مباشرة: ConnectionController(service: service)',
     );
   }
 

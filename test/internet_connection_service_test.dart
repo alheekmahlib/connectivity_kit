@@ -1,56 +1,8 @@
-import 'dart:async';
-
 import 'package:connectivity_kit/connectivity_kit.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// مصدر اتصال مزيف يقود الأحداث يدويًا بدل قنوات المنصة.
-class FakeConnectivitySource implements ConnectivitySource {
-  final StreamController<List<ConnectivityResult>> _controller =
-      StreamController<List<ConnectivityResult>>.broadcast();
-
-  List<ConnectivityResult> current = const [ConnectivityResult.wifi];
-
-  /// تأخير checkConnectivity لمحاكاة السباق مع أحداث الـ stream.
-  Duration checkDelay = Duration.zero;
-
-  @override
-  Stream<List<ConnectivityResult>> get onConnectivityChanged =>
-      _controller.stream;
-
-  @override
-  Future<List<ConnectivityResult>> checkConnectivity() async {
-    if (checkDelay > Duration.zero) {
-      await Future<void>.delayed(checkDelay);
-    }
-    return current;
-  }
-
-  void emit(List<ConnectivityResult> results) {
-    current = results;
-    _controller.add(results);
-  }
-
-  Future<void> close() => _controller.close();
-}
-
-/// فاحص وصول مزيف بعدد استدعاءات وتأخير قابلين للضبط.
-class FakeReachabilityProbe implements ReachabilityProbe {
-  FakeReachabilityProbe({this.reachable = true, this.delay = Duration.zero});
-
-  bool reachable;
-  Duration delay;
-  int callCount = 0;
-
-  @override
-  Future<bool> isReachable() async {
-    callCount++;
-    if (delay > Duration.zero) {
-      await Future<void>.delayed(delay);
-    }
-    return reachable;
-  }
-}
+import 'helpers/fakes.dart';
 
 void main() {
   test('init يعبّي الحالة الأولية من checkConnectivity', () async {
