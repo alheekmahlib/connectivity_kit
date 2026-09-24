@@ -1,3 +1,16 @@
+## 0.3.0
+
+BREAKING: the default queue store now persists via `get_storage` instead of
+`shared_preferences`.
+
+- `SharedPreferencesQueueStore` is replaced by `GetStorageQueueStore`
+  (same versioned-JSON format under the same key, inside a dedicated
+  `connectivity_kit` get_storage container isolated from the host app's own
+  container).
+- Queues persisted by ≤ 0.2.1 (in `shared_preferences`) are **not migrated**:
+  pending tasks are dropped on the first launch after upgrading.
+- Dependency change: `get_storage: ^2.1.1` replaces `shared_preferences`.
+
 ## 0.2.1
 
 Fix: a failed disk-store creation no longer aborts `TaskQueueService.init()`.

@@ -183,13 +183,15 @@ Behavior notes:
   the tasks behind it.
 - An unregistered task type is treated as a retryable failure — registering
   handlers slightly after `init()` is safe within the attempt budget.
-- On **web**, persistence uses `shared_preferences` (localStorage); very large
+- On **web**, persistence uses `get_storage` (localStorage); very large
   queues could hit storage limits.
 
 ### Storage & privacy
 
-The default `SharedPreferencesQueueStore` persists the queue as versioned JSON
-under a single key. It is **not encrypted** on most platforms — for sensitive
+The default `GetStorageQueueStore` persists the queue as versioned JSON
+under a single key inside a dedicated `get_storage` container
+(`connectivity_kit`), isolated from the host app's own GetStorage container.
+It is **not encrypted** on most platforms — for sensitive
 payloads, implement `QueueStore` yourself (wrapping e.g.
 `flutter_secure_storage` or an encrypted database) and inject it:
 

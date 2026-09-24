@@ -5,10 +5,10 @@ import 'package:get/get.dart';
 
 import '../connection_service.dart';
 import '../connectivity_status.dart';
+import 'get_storage_queue_store.dart';
 import 'memory_queue_store.dart';
 import 'queued_task.dart';
 import 'queue_store.dart';
-import 'shared_preferences_queue_store.dart';
 import 'task_handler.dart';
 
 /// إعدادات [TaskQueueService].
@@ -142,7 +142,7 @@ class TaskQueueService {
   /// الإنشاء (كانقطاع قناة المنصة على بعض الأجهزة).
   @visibleForTesting
   static Future<QueueStore> Function() defaultStoreFactory =
-      SharedPreferencesQueueStore.create;
+      GetStorageQueueStore.create;
 
   /// المهام المعلّقة بترتيب إضافتها.
   List<QueuedTask> get pendingTasks => List.unmodifiable(

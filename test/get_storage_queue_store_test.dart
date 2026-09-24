@@ -1,14 +1,36 @@
+import 'dart:io';
+
 import 'package:connectivity_kit/connectivity_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
+
+/// محاكي path_provider يوجّه get_storage إلى مجلد مؤقت حتى يعمل
+/// في اختبارات الوحدة دون قنوات المنصة الحقيقية.
+class _FakePathProvider extends PathProviderPlatform {
+  _FakePathProvider(this._appDocsPath);
+
+  final String _appDocsPath;
+
+  @override
+  Future<String?> getApplicationDocumentsPath() async => _appDocsPath;
+}
 
 void main() {
-  setUp(() {
-    SharedPreferences.setMockInitialValues({});
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUpAll(() async {
+    final dir = await Directory.systemTemp.createTemp('connectivity_kit_test');
+    PathProviderPlatform.instance = _FakePathProvider(dir.path);
+    await GetStorage.init('connectivity_kit');
+  });
+
+  tearDown(() async {
+    await GetStorage('connectivity_kit').erase();
   });
 
   test('حفظ ثم تحميل يعيدان المهام كما هي', () async {
-    final store = await SharedPreferencesQueueStore.create();
+    final store = await GetStorageQueueStore.create();
     final tasks = [
       QueuedTask(
         id: 'a',
@@ -42,12 +64,12 @@ void main() {
   });
 
   test('التحميل بلا بيانات محفوظة يعيد قائمة فارغة', () async {
-    final store = await SharedPreferencesQueueStore.create();
+    final store = await GetStorageQueueStore.create();
     expect(await store.load(), isEmpty);
   });
 
   test('الحفظ الفارغ يمسح ما سبق', () async {
-    final store = await SharedPreferencesQueueStore.create();
+    final store = await GetStorageQueueStore.create();
     await store.save([
       QueuedTask(
         id: 'a',
@@ -62,13 +84,13 @@ void main() {
   });
 
   test('القراءة التالفة تُعيد قائمة فارغة دون رمي', () async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(
+    final box = GetStorage('connectivity_kit');
+    await box.write(
       'connectivity_kit.task_queue.v1',
       'ليست JSON صالحًا',
     );
 
-    final store = SharedPreferencesQueueStore(prefs);
+    final store = GetStorageQueueStore(box);
     expect(await store.load(), isEmpty);
   });
 }

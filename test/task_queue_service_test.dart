@@ -402,7 +402,7 @@ void main() {
     }
 
     tearDown(() {
-      TaskQueueService.defaultStoreFactory = SharedPreferencesQueueStore.create;
+      TaskQueueService.defaultStoreFactory = GetStorageQueueStore.create;
     });
 
     test('فشل إنشاء مخزن القرص لا يجهض init والطابور يعمل في الذاكرة',

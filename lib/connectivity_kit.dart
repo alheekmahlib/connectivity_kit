@@ -11,7 +11,7 @@ export 'src/connectivity_status.dart';
 export 'src/queue/memory_queue_store.dart';
 export 'src/queue/queued_task.dart';
 export 'src/queue/queue_store.dart';
-export 'src/queue/shared_preferences_queue_store.dart';
+export 'src/queue/get_storage_queue_store.dart';
 export 'src/queue/task_handler.dart';
 export 'src/queue/task_queue_controller.dart';
 export 'src/queue/task_queue_service.dart';
