@@ -45,6 +45,14 @@ class _Harness {
   late final FakeQueueStore store;
   late final TaskQueueService queue;
 
+  /// بيئة بلا مخزن محقون — init يشغّل defaultStoreFactory نفسه؛
+  /// لا تلمس harness.store هنا.
+  _Harness._bare(FakeConnectivitySource src, ConnectionService conn) {
+    source = src;
+    connection = conn;
+    queue = TaskQueueService(connectionService: connection);
+  }
+
   /// خيارات سريعة للاختبارات: محاولتان وتأخير إعادة قصير.
   static const TaskQueueOptions fastOptions = TaskQueueOptions(
     maxAttempts: 2,
@@ -380,5 +388,59 @@ void main() {
     expect(harness.queue.pendingCount, 0);
     expect(harness.store.saveCount, greaterThan(0));
     await harness.dispose();
+  });
+
+  group('المخزن الافتراضي', () {
+    // بيئة بلا مخزن محقون لتشغيل defaultStoreFactory نفسه.
+    _Harness noStoreHarness() {
+      final source = FakeConnectivitySource();
+      final connection = ConnectionService(
+        connectivitySource: source,
+        options: const ConnectionOptions(disconnectDebounce: Duration.zero),
+      );
+      return _Harness._bare(source, connection);
+    }
+
+    tearDown(() {
+      TaskQueueService.defaultStoreFactory = SharedPreferencesQueueStore.create;
+    });
+
+    test('فشل إنشاء مخزن القرص لا يجهض init والطابور يعمل في الذاكرة',
+        () async {
+      TaskQueueService.defaultStoreFactory = () async => throw Exception(
+            'PlatformException(channel-error, Unable to establish '
+            'connection on channel)',
+          );
+      final harness = noStoreHarness();
+      final executed = <int>[];
+      harness.queue.registerHandler(
+        'sync',
+        (payload) async => executed.add(payload['n'] as int),
+      );
+      await harness.connection.init();
+      await harness.queue.init(); // لا يرمي رغم فشل المصنع.
+
+      await harness.queue.enqueue(type: 'sync', payload: {'n': 1});
+      await until(() => executed.isNotEmpty);
+
+      expect(executed, [1]);
+      expect(harness.queue.pendingCount, 0);
+      await harness.dispose();
+    });
+
+    test('نجاح المصنع الافتراضي يستخدم المخزن الذي أنشأه', () async {
+      final store = FakeQueueStore();
+      TaskQueueService.defaultStoreFactory = () async => store;
+      final harness = noStoreHarness();
+      harness.queue.registerHandler('sync', (_) async {});
+      await harness.connection.init();
+      await harness.queue.init();
+
+      await harness.queue.enqueue(type: 'sync', payload: {});
+      await until(() => harness.queue.pendingCount == 0);
+
+      expect(store.saveCount, greaterThan(0));
+      await harness.dispose();
+    });
   });
 }

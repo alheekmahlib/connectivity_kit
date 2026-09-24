@@ -5,6 +5,7 @@ import 'package:get/get.dart';
 
 import '../connection_service.dart';
 import '../connectivity_status.dart';
+import 'memory_queue_store.dart';
 import 'queued_task.dart';
 import 'queue_store.dart';
 import 'shared_preferences_queue_store.dart';
@@ -137,6 +138,12 @@ class TaskQueueService {
   /// عدّاد أحادي لتوليد معرفات فريدة داخل هذا الـ isolate.
   static int _idCounter = 0;
 
+  /// مصنع المخزن الافتراضي؛ قابل للاستبدال في الاختبارات لمحاكاة فشل
+  /// الإنشاء (كانقطاع قناة المنصة على بعض الأجهزة).
+  @visibleForTesting
+  static Future<QueueStore> Function() defaultStoreFactory =
+      SharedPreferencesQueueStore.create;
+
   /// المهام المعلّقة بترتيب إضافتها.
   List<QueuedTask> get pendingTasks => List.unmodifiable(
         _tasks.where((task) => task.status == TaskStatus.pending),
@@ -171,7 +178,7 @@ class TaskQueueService {
     if (_isInitialized || _isDisposed) return;
     _isInitialized = true;
 
-    _store ??= await SharedPreferencesQueueStore.create();
+    _store ??= await _createDefaultStore();
     try {
       _tasks = await _store!.load();
     } on Object catch (e) {
@@ -182,6 +189,20 @@ class TaskQueueService {
     _statusSubscription =
         _connectionService.connectionStream.listen(_onStatusChanged);
     _scheduleDrain();
+  }
+
+  /// ينشئ المخزن الافتراضي، وإن فشل إنشاؤه هبط إلى مخزن في الذاكرة —
+  /// فشل التخزين لا يجوز أن يجهض init كلها فيعلّق إقلاع التطبيق المضيف.
+  Future<QueueStore> _createDefaultStore() async {
+    try {
+      return await defaultStoreFactory();
+    } on Object catch (e) {
+      debugPrint(
+        'TaskQueue: فشل إنشاء مخزن القرص — الطابور يعمل في الذاكرة لهذه '
+        'الجلسة: $e',
+      );
+      return MemoryQueueStore();
+    }
   }
 
   /// إضافة مهمة إلى الطابور؛ إن كان هناك اتصال بدأ تنفيذها فورًا بالترتيب،

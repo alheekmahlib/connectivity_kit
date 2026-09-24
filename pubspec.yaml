@@ -3,7 +3,7 @@ description: >-
   Lightweight internet connection monitoring for Flutter apps: a pure service
   with a GetX controller, disconnect debouncing, and an optional real
   reachability probe on top of connectivity_plus.
-version: 0.2.0
+version: 0.2.1
 homepage: https://github.com/alheekmahlib/connectivity_kit
 repository: https://github.com/alheekmahlib/connectivity_kit
 issue_tracker: https://github.com/alheekmahlib/connectivity_kit/issues

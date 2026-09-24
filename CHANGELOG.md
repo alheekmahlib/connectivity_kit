@@ -1,3 +1,18 @@
+## 0.2.1
+
+Fix: a failed disk-store creation no longer aborts `TaskQueueService.init()`.
+On devices where the `shared_preferences` platform channel is unavailable
+(e.g. some old Huawei devices during Impeller's Vulkan→OpenGLES fallback),
+`getInstance()` throws inside `init()`, which — awaited in the host app's
+`main()` — left the app hung on the splash screen forever.
+
+- `init()` now falls back to a new in-memory `MemoryQueueStore` when creating
+  `SharedPreferencesQueueStore` fails: the queue keeps working for the
+  session; pending tasks simply don't survive restarts in that degraded case.
+- `MemoryQueueStore` is public and injectable for session-only queues.
+- `TaskQueueService.defaultStoreFactory` (`@visibleForTesting`) replaces the
+  built-in store creation in tests.
+
 ## 0.2.0
 
 Offline task queue: enqueue anything that needs the internet (sending notes,

@@ -8,6 +8,7 @@ export 'src/connection_controller.dart';
 export 'src/connection_service.dart';
 export 'src/connectivity_source.dart';
 export 'src/connectivity_status.dart';
+export 'src/queue/memory_queue_store.dart';
 export 'src/queue/queued_task.dart';
 export 'src/queue/queue_store.dart';
 export 'src/queue/shared_preferences_queue_store.dart';
