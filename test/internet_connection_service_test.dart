@@ -20,13 +20,12 @@ void main() {
     'حدث أحدث من الـ stream لا تكتبي فوقه نتيجة checkConnectivity القديمة',
     () async {
       final source = FakeConnectivitySource()
-        ..current = const [ConnectivityResult.none] // نتيجة أولية قديمة
+        ..current =
+            const [ConnectivityResult.none] // نتيجة أولية قديمة
         ..checkDelay = const Duration(milliseconds: 60);
       final service = ConnectionService(
         connectivitySource: source,
-        options: const ConnectionOptions(
-          disconnectDebounce: Duration.zero,
-        ),
+        options: const ConnectionOptions(disconnectDebounce: Duration.zero),
       );
 
       final initFuture = service.init();
@@ -59,7 +58,8 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 150));
 
     expect(service.currentStatus, ConnectivityStatus.wifi);
-    expect(emitted, isEmpty); // لم تتغير الحالة أصلًا
+    // البذرة فقط؛ الانقطاع العابر أقصر من الـ debounce لا يُبث حدثًا
+    expect(emitted, [ConnectivityStatus.wifi]);
     await sub.cancel();
     await service.dispose();
   });
@@ -82,7 +82,43 @@ void main() {
 
     await Future<void>.delayed(const Duration(milliseconds: 120));
     expect(service.currentStatus, ConnectivityStatus.offline);
-    expect(emitted, [ConnectivityStatus.offline]);
+    expect(emitted, [ConnectivityStatus.wifi, ConnectivityStatus.offline]);
+    await sub.cancel();
+    await service.dispose();
+  });
+
+  test('المشترك بعد init يستلم الحالة الراهنة فورًا (بذرة)', () async {
+    final source = FakeConnectivitySource()
+      ..current = const [ConnectivityResult.wifi];
+    final service = ConnectionService(connectivitySource: source);
+    await service.init();
+
+    // محاكاة مستمع يُنشأ بعد اكتمال main() — كالمزوّدات التي تُبنى
+    // مع أول إطار واجهة بعد runApp.
+    final received = <ConnectivityStatus>[];
+    final sub = service.connectionStream.listen(received.add);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(received, [ConnectivityStatus.wifi]);
+    await sub.cancel();
+    await service.dispose();
+  });
+
+  test('البذرة تصل حتى لو أعاد المصدر إطلاق نفس الحالة بعدها', () async {
+    final source = FakeConnectivitySource()
+      ..current = const [ConnectivityResult.wifi];
+    final service = ConnectionService(connectivitySource: source);
+    await service.init();
+
+    final received = <ConnectivityStatus>[];
+    final sub = service.connectionStream.listen(received.add);
+    await Future<void>.delayed(Duration.zero);
+
+    // النظام يعيد إطلاق wifi (بلا تغيير فعلي) — لا يجب أن يضيف حدثًا
+    source.emit(const [ConnectivityResult.wifi]);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    expect(received, [ConnectivityStatus.wifi]);
     await sub.cancel();
     await service.dispose();
   });
@@ -162,6 +198,55 @@ void main() {
 
       expect(probe.callCount, 2);
       expect(service.currentStatus, ConnectivityStatus.cellular);
+      await service.dispose();
+    });
+
+    test('إعادة الفحص الدورية تستعيد الاتصال بعد فشل عابر', () async {
+      final source = FakeConnectivitySource()
+        ..current = const [ConnectivityResult.wifi];
+      final probe = FakeReachabilityProbe()..reachable = false;
+      final service = ConnectionService(
+        connectivitySource: source,
+        reachabilityProbe: probe,
+        options: const ConnectionOptions(
+          enableReachability: true,
+          disconnectDebounce: Duration(milliseconds: 40),
+          recheckInterval: Duration(milliseconds: 80),
+        ),
+      );
+
+      await service.init();
+      expect(service.currentStatus, ConnectivityStatus.offline);
+
+      // الشبكة عادت فعلًا؛ إعادة الفحص الدورية يجب أن تلتقطها
+      probe.reachable = true;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+
+      expect(service.currentStatus, ConnectivityStatus.wifi);
+      expect(probe.callCount, greaterThanOrEqualTo(2));
+      await service.dispose();
+    });
+
+    test('recheckInterval = zero يعطّل إعادة الفحص الدورية', () async {
+      final source = FakeConnectivitySource()
+        ..current = const [ConnectivityResult.wifi];
+      final probe = FakeReachabilityProbe()..reachable = false;
+      final service = ConnectionService(
+        connectivitySource: source,
+        reachabilityProbe: probe,
+        options: const ConnectionOptions(
+          enableReachability: true,
+          disconnectDebounce: Duration(milliseconds: 40),
+          recheckInterval: Duration.zero,
+        ),
+      );
+
+      await service.init();
+      probe.reachable = true;
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+
+      expect(probe.callCount, 1); // الفحص الأولي فقط
+      expect(service.currentStatus, ConnectivityStatus.offline);
       await service.dispose();
     });
   });

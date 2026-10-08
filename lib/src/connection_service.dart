@@ -27,6 +27,12 @@ class ConnectionOptions {
 
     /// المنفذ المستهدف في فحص الوصول.
     this.probePort = 53,
+
+    /// إعادة فحص دورية لوصول الإنترنت الفعلي عند تفعيل [enableReachability].
+    /// الفحص قد يفشل لأسباب عابرة (تكمن شبكة لحظي مثلًا)، وبلا إعادة فحص
+    /// تبقى الحالة «غير متصل» إلى أن يغيّر النظام واجهة الشبكة بنفسه.
+    /// تعمل فقط عند تفعيل فحص الوصول، و`Duration.zero` أو أقل يعطّلها.
+    this.recheckInterval = const Duration(seconds: 30),
   });
 
   final Duration disconnectDebounce;
@@ -34,10 +40,15 @@ class ConnectionOptions {
   final Duration reachabilityTimeout;
   final String probeHost;
   final int probePort;
+  final Duration recheckInterval;
 }
 
 /// خدمة مراقبة الاتصال بالإنترنت: تبثّ [ConnectivityStatus] عند تغيّرها فقط،
 /// مع debounce للانقطاع وخيار فحص الوصول الفعلي.
+///
+/// يبدأ كل مشترك جديد في [connectionStream] باستلام الحالة الراهنة فورًا
+/// (بذرة) ثم التغييرات اللاحقة فقط — فلا يضيع المشترك الذي يُنشأ بعد
+/// `init()` (مثل مزوّدات تُبنى مع أول إطار واجهة) الحالة الأولى.
 ///
 /// يجب استدعاء [init] مع `await` قبل استخدام الخدمة، و[dispose] عند عدم
 /// الحاجة إليها. استدعاء [dispose] قبل [init] آمن.
@@ -46,17 +57,18 @@ class ConnectionService {
     ConnectionOptions options = const ConnectionOptions(),
     ConnectivitySource? connectivitySource,
     ReachabilityProbe? reachabilityProbe,
-  })  : _options = options,
-        _connectivitySource =
-            connectivitySource ?? const DefaultConnectivitySource(),
-        _reachabilityProbe = reachabilityProbe ??
-            (options.enableReachability
-                ? SocketReachabilityProbe(
-                    host: options.probeHost,
-                    port: options.probePort,
-                    timeout: options.reachabilityTimeout,
-                  )
-                : null);
+  }) : _options = options,
+       _connectivitySource =
+           connectivitySource ?? const DefaultConnectivitySource(),
+       _reachabilityProbe =
+           reachabilityProbe ??
+           (options.enableReachability
+               ? SocketReachabilityProbe(
+                   host: options.probeHost,
+                   port: options.probePort,
+                   timeout: options.reachabilityTimeout,
+                 )
+               : null);
 
   final ConnectionOptions _options;
   final ConnectivitySource _connectivitySource;
@@ -65,17 +77,42 @@ class ConnectionService {
   final StreamController<ConnectivityStatus> _connectionStatusController =
       StreamController<ConnectivityStatus>.broadcast();
 
-  /// بث التغيرات في حالة الاتصال (للقيمة المتغيّرة فقط).
-  Stream<ConnectivityStatus> get connectionStream =>
-      _connectionStatusController.stream;
+  /// بث الحالة الراهنة فورًا لأول مشترك (بذرة) ثم التغييرات اللاحقة فقط.
+  ///
+  /// كل استدعاء للـ getter يعيد stream مستقلًا؛ البذرة تُقرأ لحظة اشتراك
+  /// أول مستمع في ذلك الـ stream، وتُعاد البذرة إن فرغ ثم عاد المستمعون.
+  Stream<ConnectivityStatus> get connectionStream {
+    late StreamController<ConnectivityStatus> seeded;
+    StreamSubscription<ConnectivityStatus>? inner;
+    seeded = StreamController<ConnectivityStatus>.broadcast(
+      onListen: () {
+        seeded.add(_currentStatus);
+        inner = _connectionStatusController.stream.listen(
+          seeded.add,
+          onDone: seeded.close,
+        );
+      },
+      onCancel: () async {
+        await inner?.cancel();
+        inner = null;
+      },
+    );
+    return seeded.stream;
+  }
 
   ConnectivityStatus _currentStatus = ConnectivityStatus.offline;
 
   /// آخر حالة اتصال معروفة.
   ConnectivityStatus get currentStatus => _currentStatus;
 
+  /// آخر حالة مُستنتجة من واجهات الشبكة قبل فحص الوصول — أساس إعادة
+  /// الفحص الدورية (قد تكون الحالة المبثوثة offline بسبب فشل فحص عابر
+  /// بينما الواجهة نفسها لا تزال متاحة).
+  ConnectivityStatus _lastResolved = ConnectivityStatus.offline;
+
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
   Timer? _disconnectTimer;
+  Timer? _recheckTimer;
   bool _isInitialized = false;
   bool _isDisposed = false;
 
@@ -92,12 +129,29 @@ class ConnectionService {
     if (_isInitialized || _isDisposed) return;
     _isInitialized = true;
 
-    _connectivitySubscription =
-        _connectivitySource.onConnectivityChanged.listen(_onConnectivityResult);
+    _connectivitySubscription = _connectivitySource.onConnectivityChanged
+        .listen(_onConnectivityResult);
+    _startRecheckTimer();
 
     final initialResult = await _connectivitySource.checkConnectivity();
     if (_isDisposed || _hasStreamEvent) return;
     await _applyResolved(resolveConnectivityStatus(initialResult));
+  }
+
+  /// تشغيل إعادة الفحص الدورية عند تفعيل فحص الوصول — راجع
+  /// [ConnectionOptions.recheckInterval].
+  void _startRecheckTimer() {
+    if (!_options.enableReachability ||
+        _reachabilityProbe == null ||
+        _options.recheckInterval <= Duration.zero ||
+        _isDisposed) {
+      return;
+    }
+    _recheckTimer = Timer.periodic(_options.recheckInterval, (_) {
+      // لا معنى لإعادة فحص بلا واجهة شبكة؛ أحداث الواجهة هي من توقظنا.
+      if (_lastResolved == ConnectivityStatus.offline) return;
+      _applyResolved(_lastResolved);
+    });
   }
 
   void _onConnectivityResult(List<ConnectivityResult> result) {
@@ -107,6 +161,7 @@ class ConnectionService {
 
   /// تطبيق الحالة مع فحص الوصول الفعلي إن كان مفعّلًا.
   Future<void> _applyResolved(ConnectivityStatus status) async {
+    _lastResolved = status;
     if (!_options.enableReachability ||
         _reachabilityProbe == null ||
         status == ConnectivityStatus.offline) {
@@ -158,6 +213,8 @@ class ConnectionService {
     _isDisposed = true;
     _disconnectTimer?.cancel();
     _disconnectTimer = null;
+    _recheckTimer?.cancel();
+    _recheckTimer = null;
     _probeSequence++; // يُبطل أي فحص وصول جارٍ
     await _connectivitySubscription?.cancel();
     _connectivitySubscription = null;

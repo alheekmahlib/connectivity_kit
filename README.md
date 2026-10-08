@@ -81,6 +81,11 @@ service.connectionStream.listen((status) {
 });
 ```
 
+Every new listener receives the **current status immediately** on
+subscription (a seed), then only actual changes — so consumers created after
+`init()` (e.g. providers built with the first UI frame) never miss the
+initial status.
+
 ### Connection options
 
 All options have sensible defaults and live in `ConnectionOptions`:
@@ -91,6 +96,7 @@ All options have sensible defaults and live in `ConnectionOptions`:
 | `enableReachability` | `false` | Verify real internet access (TCP probe) before reporting online. |
 | `reachabilityTimeout` | `5s` | Timeout for the reachability probe. |
 | `probeHost` / `probePort` | `1.1.1.1` / `53` | Probe target (direct TCP, no HTTP overhead). |
+| `recheckInterval` | `30s` | With reachability on, re-probe periodically so a transient probe failure doesn't stick as `offline`. `Duration.zero` disables. |
 
 Notes:
 

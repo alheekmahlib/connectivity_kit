@@ -1,3 +1,22 @@
+## 0.4.0
+
+Fix: late subscribers to `connectionStream` no longer starve until the next
+network transition, and a transient reachability failure no longer sticks as
+`offline` forever.
+
+- `connectionStream` now seeds every new listener with the current status
+  immediately on subscription (then changes only, as before). Consumers that
+  subscribe after `init()` completes — e.g. providers built with the first UI
+  frame after `runApp()` — previously missed the initial status forever: the
+  broadcast stream had no replay and unchanged statuses are suppressed, so a
+  UI "offline" banner could stay amber for the whole session on a stable
+  network.
+- New `ConnectionOptions.recheckInterval` (default `30s`, active only with
+  `enableReachability: true`): periodically re-probes real internet access
+  against the last known interface status, recovering from a transient probe
+  failure without waiting for an OS interface change. `Duration.zero` or less
+  disables the periodic recheck.
+
 ## 0.3.0
 
 BREAKING: the default queue store now persists via `get_storage` instead of
