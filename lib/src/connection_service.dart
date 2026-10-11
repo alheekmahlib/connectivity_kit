@@ -57,18 +57,17 @@ class ConnectionService {
     ConnectionOptions options = const ConnectionOptions(),
     ConnectivitySource? connectivitySource,
     ReachabilityProbe? reachabilityProbe,
-  }) : _options = options,
-       _connectivitySource =
-           connectivitySource ?? const DefaultConnectivitySource(),
-       _reachabilityProbe =
-           reachabilityProbe ??
-           (options.enableReachability
-               ? SocketReachabilityProbe(
-                   host: options.probeHost,
-                   port: options.probePort,
-                   timeout: options.reachabilityTimeout,
-                 )
-               : null);
+  })  : _options = options,
+        _connectivitySource =
+            connectivitySource ?? const DefaultConnectivitySource(),
+        _reachabilityProbe = reachabilityProbe ??
+            (options.enableReachability
+                ? SocketReachabilityProbe(
+                    host: options.probeHost,
+                    port: options.probePort,
+                    timeout: options.reachabilityTimeout,
+                  )
+                : null);
 
   final ConnectionOptions _options;
   final ConnectivitySource _connectivitySource;
@@ -124,18 +123,35 @@ class ConnectionService {
   int _probeSequence = 0;
 
   /// دالة التهيئة — يجب استدعاؤها مع await قبل استخدام الخدمة.
+  ///
+  /// مع تفعيل فحص الوصول، تعود [init] بعد فحص واجهات الشبكة السريع فقط
+  /// (نداء منصة) وتبث حالة الواجهة فورًا؛ أما نتيجة فحص الإنترنت الفعلي
+  /// فتصل لاحقًا عبر [connectionStream] — فقد يطول الفحص حتى
+  /// [ConnectionOptions.reachabilityTimeout] ولا يجوز أن يُحجب إقلاع
+  /// التطبيق عليها.
+  ///
   /// الاستدعاء المتكرر آمن (يُتجاهل).
   Future<void> init() async {
     if (_isInitialized || _isDisposed) return;
     _isInitialized = true;
 
-    _connectivitySubscription = _connectivitySource.onConnectivityChanged
-        .listen(_onConnectivityResult);
+    _connectivitySubscription =
+        _connectivitySource.onConnectivityChanged.listen(_onConnectivityResult);
     _startRecheckTimer();
 
     final initialResult = await _connectivitySource.checkConnectivity();
     if (_isDisposed || _hasStreamEvent) return;
-    await _applyResolved(resolveConnectivityStatus(initialResult));
+    final resolved = resolveConnectivityStatus(initialResult);
+    if (_options.enableReachability &&
+        _reachabilityProbe != null &&
+        resolved != ConnectivityStatus.offline) {
+      // بث متفائل فوري بحالة الواجهة، والفحص الفعلي يجري بالخلفية: عند
+      // فشله تُقلب الحالة إلى offline عبر الـ debounce كأي انقطاع آخر.
+      _updateWithDebounce(resolved);
+      unawaited(_applyResolved(resolved));
+    } else {
+      await _applyResolved(resolved);
+    }
   }
 
   /// تشغيل إعادة الفحص الدورية عند تفعيل فحص الوصول — راجع

@@ -20,8 +20,7 @@ void main() {
     'حدث أحدث من الـ stream لا تكتبي فوقه نتيجة checkConnectivity القديمة',
     () async {
       final source = FakeConnectivitySource()
-        ..current =
-            const [ConnectivityResult.none] // نتيجة أولية قديمة
+        ..current = const [ConnectivityResult.none] // نتيجة أولية قديمة
         ..checkDelay = const Duration(milliseconds: 60);
       final service = ConnectionService(
         connectivitySource: source,
@@ -142,6 +141,45 @@ void main() {
   });
 
   group('مع تفعيل reachability', () {
+    test('init لا يُحجب على فحص الوصول الأولي', () async {
+      final source = FakeConnectivitySource()
+        ..current = const [ConnectivityResult.wifi];
+      final probe = FakeReachabilityProbe(
+        delay: const Duration(milliseconds: 250),
+      )..reachable = false;
+      final service = ConnectionService(
+        connectivitySource: source,
+        reachabilityProbe: probe,
+        options: const ConnectionOptions(
+          enableReachability: true,
+          disconnectDebounce: Duration.zero,
+        ),
+      );
+
+      var initDone = false;
+      final initFuture = service.init().then((_) => initDone = true);
+
+      // أثناء الفحص الجارٍ: init عاد بالفعل وحالة الواجهة مبثوثة فورًا
+      await Future<void>.delayed(const Duration(milliseconds: 60));
+      expect(
+        initDone,
+        isTrue,
+        reason: 'init يجب ألا ينتظر نتيجة فحص الوصول الفعلي',
+      );
+      expect(
+        service.currentStatus,
+        ConnectivityStatus.wifi,
+        reason: 'حالة الواجهة تُبث فورًا قبل اكتمال الفحص',
+      );
+
+      // وعند فشل الفحص لاحقًا تُقلب الحالة إلى offline عبر الـ stream
+      await initFuture;
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      expect(probe.callCount, 1);
+      expect(service.currentStatus, ConnectivityStatus.offline);
+      await service.dispose();
+    });
+
     test('فشل الفحص يحوّل الحالة إلى offline', () async {
       final source = FakeConnectivitySource()
         ..current = const [ConnectivityResult.wifi];
@@ -158,6 +196,10 @@ void main() {
       await service.init();
 
       expect(probe.callCount, 1);
+      // init تبث حالة الواجهة فورًا (wifi) ثم تُقلب إلى offline بعد اكتمال
+      // الفحص الفاشل + مهلة الـ debounce (40ms).
+      expect(service.currentStatus, ConnectivityStatus.wifi);
+      await Future<void>.delayed(const Duration(milliseconds: 120));
       expect(service.currentStatus, ConnectivityStatus.offline);
       await service.dispose();
     });
@@ -216,6 +258,8 @@ void main() {
       );
 
       await service.init();
+      // الفحص الأولي فشل: الحالة تُقلب إلى offline بعد الـ debounce (40ms)
+      await Future<void>.delayed(const Duration(milliseconds: 120));
       expect(service.currentStatus, ConnectivityStatus.offline);
 
       // الشبكة عادت فعلًا؛ إعادة الفحص الدورية يجب أن تلتقطها

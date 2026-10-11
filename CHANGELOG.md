@@ -1,3 +1,20 @@
+## 0.4.1
+
+Fix: `init()` no longer blocks on the initial reachability probe.
+
+- With `enableReachability: true`, `init()` used to await the TCP probe
+  (up to `reachabilityTimeout`, default `5s`), freezing the caller — app
+  startup stayed on the native splash for the full timeout on networks that
+  filter the probe host (e.g. `1.1.1.1`) while fully online, and on
+  connected-but-dead Wi-Fi. `init()` now returns right after the fast
+  platform connectivity check and broadcasts the interface status
+  immediately; the probe runs in the background and the status flips to
+  `offline` via the usual debounce when the probe fails.
+- Behavior note: the first status broadcast is now the optimistic interface
+  status (`wifi`/`cellular`) and may be refined to `offline` a moment later,
+  instead of staying `offline` (the pre-broadcast default) until the probe
+  completes.
+
 ## 0.4.0
 
 Fix: late subscribers to `connectionStream` no longer starve until the next
